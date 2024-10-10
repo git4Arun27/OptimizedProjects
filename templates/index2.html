@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Capture</title>
+    <style>
+        #result {
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Camera Capture</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="capture">Capture</button>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <h2>Detection Result:</h2>
+    <div id="result"></div> <!-- Div to display the JSON response -->
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const captureButton = document.getElementById('capture');
+        const resultDiv = document.getElementById('result');
+
+        // Access the device camera and stream to video element
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                window.localStream = stream;  // Store the stream to stop it later
+            })
+            .catch(err => {
+                console.error("Error accessing the camera: ", err);
+            });
+
+        // Function to hide elements
+        function hideElements() {
+            video.classList.add('hidden');  // Hide the video
+            captureButton.classList.add('hidden');  // Hide the capture button
+            canvas.classList.add('hidden');  // Hide the canvas
+        }
+
+        // Capture the image when the button is clicked
+        captureButton.addEventListener('click', () => {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('file', blob, 'captured_image.jpg');
+
+                // Send the captured image to the backend
+                fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Success:', data);
+
+                    // Hide the video, button, and canvas after capturing the image
+                    hideElements();
+
+                    // Display the JSON response
+                    resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    resultDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+                });
+            }, 'image/jpeg');
+        });
+    </script>
+</body>
+</html>
